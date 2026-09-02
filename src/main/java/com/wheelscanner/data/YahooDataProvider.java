@@ -323,6 +323,14 @@ public class YahooDataProvider implements DataProvider {
             return null;
         }
 
+        double moneyness = (stockPrice - strike) / stockPrice;
+        if (moneyness < AppConfig.MIN_PUT_DISTANCE_PCT) {
+            stats.inc("wheel: distance strike/prix < min.put.distance.pct ("
+                    + String.format("%.1f%%", moneyness * 100) + "<"
+                    + String.format("%.1f%%", AppConfig.MIN_PUT_DISTANCE_PCT * 100) + ")");
+            return null;
+        }
+
         double bid = put.path("bid").asDouble(0);
         double ask = put.path("ask").asDouble(0);
         double last = put.path("lastPrice").asDouble(0);
@@ -347,7 +355,6 @@ public class YahooDataProvider implements DataProvider {
             return null;
         }
 
-        double moneyness = (stockPrice - strike) / stockPrice;
         double approxDelta = Math.max(0.05, Math.min(0.45, 0.30 - moneyness * 1.2));
 
         if (approxDelta < AppConfig.MIN_DELTA) {

@@ -116,6 +116,7 @@ public final class AppConfig {
     public static final long MIN_OPEN_INTEREST = getLong("min.open.interest", 50);
     public static final double MAX_SPREAD_PCT = getDouble("max.spread.pct", 0.35);
     public static final double MIN_ANNUALIZED_YIELD = getDouble("min.annualized.yield", 0.12);
+    public static final double MIN_PUT_DISTANCE_PCT = getDouble("min.put.distance.pct", 0.20);
 
     public static final int MIN_LEAP_DTE = getInt("min.leap.dte", 300);
     public static final double MIN_LEAP_DELTA = getDouble("min.leap.delta", 0.70);
