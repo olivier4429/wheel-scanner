@@ -1,0 +1,152 @@
+# ============================================================
+# Configuration du Scanner Wheel + PMCC
+# ============================================================
+# Edite ce fichier, puis :
+#   - soit tu recompiles (mvn clean package)
+#   - soit tu places une copie a cote du jar et tu relances
+# Ne committe JAMAIS ce fichier avec tes vraies cles sur Git.
+# ============================================================
+
+
+# ============================================================
+# WATCHLIST
+# ============================================================
+
+# Liste des tickers a analyser, separes par des virgules (sans espaces obligatoires).
+# Role : definit l univers de titres que le scanner interroge a chaque run.
+# Valeur actuelle : selection de titres liquides souvent sous 30 $, adaptes a un
+# capital ~10 000 $ pour faire de la Wheel (cash-secured puts).
+# Si tu reduis trop la liste : moins d opportunites, mais scan plus rapide.
+# Si tu l elargis beaucoup : plus de bruit, plus d appels Yahoo, risque de rate-limit,
+# et des titres peu liquides ou trop chers pour ton capital.
+watchlist=OPEN,GRAB,NVDA,HIMS,TTE,PFE,F,NIO,SOFI,STLA,PCG,INTC,SNAP,NOK,MARA
+#,LCID,RIVN
+
+
+# ============================================================
+# CRITERES D INTERET D UNE OPTION (Wheel - Cash Secured Put)
+# ============================================================
+
+# Prix maximum de l action sous-jacente (USD).
+# Role : evite les titres trop chers pour un capital de ~10k$ (1 put cash-secured
+# immobilise strike x 100 dollars).
+# Valeur 30 : un put a strike 30 immobilise ~3000 $, ce qui reste gerable.
+# Si tu montes a 50-100 : tu peux trouver de meilleurs sous-jacents, mais chaque
+# position consomme beaucoup plus de capital et reduit la diversification.
+# Si tu descends a 10 : tres peu de liquidite options, spreads larges, plus de risque.
+#max.stock.price=30.0
+
+# Nombre minimum de jours jusqu a expiration (DTE) pour un put Wheel.
+# Role : filtre les options trop proches de l expiration (theta rapide mais
+# gamma eleve = mouvements violents, gestion stressante).
+# Valeur 25 : zone classique "30-45 DTE" legerement elargie vers le bas.
+# Si tu descends a 7-14 : plus de premium annualise possible, mais risque de
+# assignment rapide et de gros gaps. Difficile a gerer en discret.
+# Si tu montes trop (ex. min 40) : tu rates beaucoup d opportunites liquides.
+min.dte=1
+
+# Nombre maximum de jours jusqu a expiration (DTE) pour un put Wheel.
+# Role : evite les options trop lointaines (capital immobilise longtemps,
+# premium moins "dense" en theta court terme).
+# Valeur 50 : reste dans la zone standard de la Wheel (30-45 j, avec marge).
+# Si tu montes a 90-120 : rendement annualise souvent plus faible, gestion plus lente.
+# Si tu descends a 30 : scan plus strict, moins de candidats.
+max.dte=45
+
+# Delta minimum du put a vendre (Cash-Secured Put).
+# Role : le delta approxime la probabilite que l option finisse dans la monnaie.
+# Valeur 0.18 : on ne prend pas des puts trop loin OTM (premium trop faible).
+# Si tu descends a 0.05-0.10 : beaucoup de "petits" premiums, rendement faible,
+# beaucoup de positions a gerer pour peu de gain.
+# Si tu montes le min (ex. 0.25) : plus de premium, mais plus de risque d assignment.
+min.delta=0.1
+
+# Delta maximum du put a vendre.
+# Role : limite le risque d etre assigne (put trop proche de la monnaie ou ITM).
+# Valeur 0.32 : zone classique 0.20-0.30 legerement elargie.
+# Si tu montes a 0.40-0.50 : premium eleve, mais forte proba d acheter l action
+# (ce qui est OK pour la Wheel SI tu veux vraiment le titre).
+# Si tu descends a 0.20 : plus conservateur, moins de candidates.
+max.delta=0.32
+
+# Open Interest minimum.
+# Role : mesure de liquidite. Un OI faible = difficile a entrer/sortir, spreads larges.
+# Valeur 50 : filtre deja les options "mortes" tout en gardant des small/mid caps.
+# Si tu montes a 500-1000 : tres liquide, mais tu exclus beaucoup de titres < 30 $.
+# Si tu descends a 10 : plus d opportunites, mais risque de ne pas pouvoir racheter
+# le put a un prix correct.
+min.open.interest=15
+
+# Spread maximum autorise = (ask - bid) / mid.
+# Role : evite de vendre dans un marche trop large (tu perds d emblée une partie
+# du premium a cause du spread).
+# Valeur 0.35 (35 %) : assez tolerante pour les titres a 10-30 $ (spreads souvent larges).
+# Si tu descends a 0.10-0.15 : qualite d execution bien meilleure, mais tres peu
+# d options passeront le filtre sur small caps.
+# Si tu montes a 0.50+ : tu acceptes des fills mediocres, le rendement reel sera
+# souvent inferieur au theorique.
+max.spread.pct=0.35
+
+# Rendement annualise minimum du put (premium / collateral * 365 / DTE).
+# Role : ecarte les puts "pas assez payes" par rapport au capital bloque.
+# Valeur 0.12 (12 % annualise) : objectif realiste pour de la Wheel conservative
+# sur titres liquides ; au-dessus du rendement obligataire classique.
+# Si tu montes a 0.25-0.40 : tu ne garderas que des puts risquees (haute IV,
+# titres volatils) → plus de chance d assignment et de drawdown.
+# Si tu descends a 0.05 : beaucoup plus d opportunites, mais capital mal remunere.
+min.annualized.yield=0.12
+
+# Ecart minimum entre le cours de l action et le strike du put vendu,
+# calcule par rapport au cours : (cours - strike) / cours.
+# Valeur 0.20 : le strike doit etre au plus egal a 80 % du cours.
+min.put.distance.pct=0.15
+
+
+# ============================================================
+# CRITERES PMCC (Poor Man Covered Call - LEAPs)
+# ============================================================
+
+# DTE minimum du LEAP (call long deep ITM).
+# Role : un LEAP trop court perd son interet (trop de theta, moins de "remplacement"
+# d une position action).
+# Valeur 300 (~10 mois) : zone standard pour un LEAP PMCC (souvent 12+ mois).
+# Si tu descends a 180 : moins cher a l achat, mais le LEAP se comporte plus
+# comme une option classique (theta important).
+# Si tu montes a 600+ : cout plus eleve, moins de liquidite, capital immobilise longtemps.
+min.leap.dte=300
+
+# Delta minimum du LEAP achete.
+# Role : un LEAP PMCC doit se comporter presque comme l action (delta eleve).
+# Valeur 0.70 : deep ITM raisonnable, bon compromis cout / exposition.
+# Si tu descends a 0.50-0.60 : moins cher, mais beaucoup plus sensible a la IV
+# et au passage du temps (moins "action-like").
+# Si tu montes a 0.85-0.90 : tres proche de l action, mais LEAP tres cher
+# (peu d interet vs acheter l action ou faire une vraie covered call).
+min.leap.delta=0.70
+
+# Delta maximum du LEAP achete.
+# Role : evite les LEAPs excessivement chers / trop proches de delta 1.
+# Valeur 0.85 : reste dans la zone PMCC classique.
+# Si tu montes a 0.95 : tu paies presque le prix de l action, l interet du PMCC disparait.
+# Si tu descends a 0.75 : filtre plus strict, moins de candidats.
+max.leap.delta=0.85
+
+
+
+
+# --- Options ---
+# true = affiche plus de logs
+debug=true
+
+
+# --- Groq (IA gratuite) ---
+# Crée un compte sur https://console.groq.com et génère une clé API
+groq.api.key=REPLACE_WITH_YOUR_GROQ_API_KEY
+#groq.model=llama-3.1-8b-instant
+groq.model=openai/gpt-oss-20b
+# --- Telegram ---
+# 1. Crée un bot avec @BotFather
+# 2. Ajoute le bot dans ton groupe
+# 3. Récupère le chat_id du groupe (ex: -1001234567890)
+telegram.bot.token=0000000000:REPLACE_WITH_YOUR_TELEGRAM_BOT_TOKEN
+telegram.chat.id=REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID
