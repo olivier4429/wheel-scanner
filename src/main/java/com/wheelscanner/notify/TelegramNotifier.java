@@ -9,6 +9,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 public class TelegramNotifier {
@@ -29,8 +30,30 @@ public class TelegramNotifier {
             return;
         }
 
+        List<Opportunity> wheelOpportunities = new ArrayList<>();
+        List<Opportunity> pmccOpportunities = new ArrayList<>();
+
+        if (opportunities != null) {
+            for (Opportunity o : opportunities) {
+                if (o == null) {
+                    continue;
+                }
+
+                if (o.strategy == Opportunity.Strategy.WHEEL_CSP) {
+                    wheelOpportunities.add(o);
+                } else if (o.strategy == Opportunity.Strategy.PMCC) {
+                    pmccOpportunities.add(o);
+                }
+            }
+        }
+
+        sendTelegramMessage(token, chatId, "Scanner Wheel", wheelOpportunities);
+        sendTelegramMessage(token, chatId, "Scanner PMCC", pmccOpportunities);
+    }
+
+    private void sendTelegramMessage(String token, String chatId, String title, List<Opportunity> opportunities) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Scanner Wheel + PMCC\n");
+        sb.append(title).append("\n");
         sb.append(java.time.LocalDateTime.now()).append("\n\n");
 
         if (opportunities == null || opportunities.isEmpty()) {
@@ -55,11 +78,15 @@ public class TelegramNotifier {
             }
         }
 
+        sendTelegramText(token, chatId, sb.toString());
+    }
+
+    private void sendTelegramText(String token, String chatId, String text) {
         try {
-            String text = URLEncoder.encode(sb.toString(), StandardCharsets.UTF_8);
+            String encodedText = URLEncoder.encode(text, StandardCharsets.UTF_8);
             String url = String.format(
                     "https://api.telegram.org/bot%s/sendMessage?chat_id=%s&text=%s",
-                    token, chatId, text
+                    token, chatId, encodedText
             );
 
             HttpRequest request = HttpRequest.newBuilder()
